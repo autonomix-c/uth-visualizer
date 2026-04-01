@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UTH Advantage Visualizer</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Ultimate Texas Hold'em</h1>
+            <h2>Autonomix Analysis Visualizer</h2>
+        </header>
+
+        <!-- PREFLOP SECTION -->
+        <section class="game-stage">
+            <div class="stage-header">
+                <h3>Preflop: The Boundary Radius</h3>
+                <p>Hover over <strong>Your Hand</strong> to instantly project the structural EVs caused by <strong>Buddy's Range</strong>.</p>
+            </div>
+
+            <main class="grid-container">
+                <!-- Table 1 -->
+                <div class="table-wrapper">
+                    <h4>Table 1: Your Hand</h4>
+                    <div id="table1" class="poker-grid"></div>
+                    <div class="legend" style="flex-wrap: wrap; max-width: 400px; margin: 1.5rem auto 0;">
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-green-always);"></span> Always 4x</span>
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-green-varies);"></span> Variable 4x</span>
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-red-always);"></span> Always Check</span>
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-red-varies);"></span> Variable Check</span>
+                    </div>
+                </div>
+
+                <!-- Table 2 -->
+                <div class="table-wrapper">
+                    <h4>Table 2: Buddy's Influence</h4>
+                    <div id="table2" class="poker-grid"></div>
+                    <div class="legend">
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-green-always);"></span> 4x Jam</span>
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-red-always);"></span> Check</span>
+                    </div>
+                </div>
+            </main>
+            
+            <div class="status-panel">
+                <span id="hover-status">Waiting for interaction...</span>
+            </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <!-- FLOP SECTION -->
+        <section class="game-stage" id="flop">
+            <div class="stage-header">
+                <h3>Flop Engine</h3>
+                <div class="rules-panel">
+                    <h4>Basic Strategy Baseline</h4>
+                    <p>The system natively encodes structural constraints (detecting Paired/Suited/Offsuit boards, determining Kicker Nut Levels and straight/flush depths).</p>
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
+                    <h4>Autonomix Analysis Overrides</h4>
+                    <ul>
+                        <li><span class="highlight">5th Nut Flush Intercept:</span> Flop Flush draws are ONLY checked if you hold a Ten-High or worse draw (e.g. Ts 3s), AND Buddy physically holds at least 1 matching out.</li>
+                        <li><span class="highlight">Minimum Straight Intercept:</span> Flop Straight draws are ONLY checked if you hold the literal boundary (JT98), AND Buddy physically holds at least 1 exact completion out.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="scenario-builder" id="flop-scenario">
+                <button class="reset-btn" onclick="resetStage('f-')">Reset Flop Scenarios</button>
+                <div class="board-column">
+                    <h4>Flop Board</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="f-b1" onclick="openDeck('f-b1')">Select</div>
+                        <div class="card-slot empty" id="f-b2" onclick="openDeck('f-b2')">Select</div>
+                        <div class="card-slot empty" id="f-b3" onclick="openDeck('f-b3')">Select</div>
+                    </div>
+                </div>
+                
+                <div class="hands-column">
+                    <h4>Your Hand</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="f-m1" onclick="openDeck('f-m1')">Select</div>
+                        <div class="card-slot empty" id="f-m2" onclick="openDeck('f-m2')">Select</div>
+                    </div>
+                    <h4>Buddy's Hand</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="f-o1" onclick="openDeck('f-o1')">Select</div>
+                        <div class="card-slot empty" id="f-o2" onclick="openDeck('f-o2')">Select</div>
+                    </div>
+                </div>
+
+                <div class="result-board" id="flop-result-board">
+                    <h4>Engine Output</h4>
+                    <div class="action-result" id="flop-action">--</div>
+                    <p class="logic-reasoning" id="flop-reason">Awaiting inputs...</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <!-- RIVER SECTION -->
+        <section class="game-stage" id="river">
+            <div class="stage-header">
+                <h3>River Engine</h3>
+                <div class="rules-panel">
+                    <h4>Basic Strategy Baseline</h4>
+                    <p>The system mathematically classifies the 5-card board (Scare, Quads, Trips, 2-pair, 1-pair, Gutshot, No Pair) and strictly requires the designated Kicker threshold to Call.</p>
+                    <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
+                    <h4>Autonomix Analysis Overrides</h4>
+                    <ul>
+                        <li><span class="highlight">Paired Qualifying Boards:</span> If the 5-card board inherently qualifies the Dealer (Paired / 2-Pair / Trips), checking Buddy overcards becomes relevant.</li>
+                        <li><span class="highlight">The +1 Promotion:</span> If Buddy physically holds exactly 2 Nut Overcards or 2 absolute Dealer Match Outs, your required kicker threshold mechanically shrinks by 1 rank (promoting a `Fold` into a `Call`).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="scenario-builder" id="river-scenario">
+                <button class="reset-btn" onclick="resetStage('r-')">Reset River Scenarios</button>
+                <div class="board-column">
+                    <h4>River Board</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="r-b1" onclick="openDeck('r-b1')">Select</div>
+                        <div class="card-slot empty" id="r-b2" onclick="openDeck('r-b2')">Select</div>
+                        <div class="card-slot empty" id="r-b3" onclick="openDeck('r-b3')">Select</div>
+                        <div class="card-slot empty" id="r-b4" onclick="openDeck('r-b4')">Select</div>
+                        <div class="card-slot empty" id="r-b5" onclick="openDeck('r-b5')">Select</div>
+                    </div>
+                </div>
+                
+                <div class="hands-column">
+                    <h4>Your Hand</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="r-m1" onclick="openDeck('r-m1')">Select</div>
+                        <div class="card-slot empty" id="r-m2" onclick="openDeck('r-m2')">Select</div>
+                    </div>
+                    <h4>Buddy's Hand</h4>
+                    <div class="card-row">
+                        <div class="card-slot empty" id="r-o1" onclick="openDeck('r-o1')">Select</div>
+                        <div class="card-slot empty" id="r-o2" onclick="openDeck('r-o2')">Select</div>
+                    </div>
+                </div>
+
+                <div class="result-board" id="river-result-board">
+                    <h4>Engine Output</h4>
+                    <div class="action-result" id="river-action">--</div>
+                    <p class="logic-reasoning" id="river-reason">Awaiting inputs...</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>Built exclusively by the Autonomix Matrix.</p>
+        </footer>
+    </div>
+
+    <!-- Interactive Deck Modal -->
+    <div id="deck-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Select a Card</h3>
+                <button class="close-btn" onclick="closeDeck()">×</button>
+            </div>
+            <div class="deck-grid" id="deck-grid">
+                <!-- Javascript will populate 52 cards here -->
+            </div>
+        </div>
+    </div>
+
+    <script src="poker_engine.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
