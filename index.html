@@ -159,7 +159,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>Select a Card</h3>
-                <button class="close-btn" onclick="closeDeck()">×</button>
+                <div>
+                    <button class="reset-btn" onclick="clearActiveCard()" style="background: var(--color-check); color: white; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-weight: bold; margin-right: 15px;">Clear Slot</button>
+                    <button class="close-btn" onclick="closeDeck()" style="display:inline-block; vertical-align:middle;">×</button>
+                </div>
             </div>
             <div class="deck-grid" id="deck-grid">
                 <!-- Javascript will populate 52 cards here -->

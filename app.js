@@ -155,6 +155,27 @@ function closeDeck() {
     activeTargetId = null;
 }
 
+function clearActiveCard() {
+    if (!activeTargetId) return;
+    gameState[activeTargetId] = null;
+    let slot = document.getElementById(activeTargetId);
+    if (slot) {
+        slot.innerHTML = 'Select';
+        slot.className = 'card-slot empty';
+    }
+    closeDeck();
+    
+    const boardKeys = ['r-b1', 'r-b2', 'r-b3', 'r-b4', 'r-b5'];
+    if (boardKeys.some(k => !gameState[k])) {
+        let matrix = document.getElementById('river-matrix');
+        if (matrix) matrix.style.display = 'none';
+        let legend = document.getElementById('river-legend');
+        if (legend) legend.style.display = 'none';
+        let calc = document.getElementById('river-calculating');
+        if (calc) calc.style.display = 'none';
+    }
+}
+
 function selectCard(rank, suit) {
     if (!activeTargetId) return;
     gameState[activeTargetId] = { rank, suit, val: RANK_VALS[rank] };
