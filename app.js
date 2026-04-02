@@ -107,7 +107,7 @@ if (table1 && table2) renderGrids();
  * ========================================== */
 const gameState = {
     'f-b1': null, 'f-b2': null, 'f-b3': null, 'f-m1': null, 'f-m2': null, 'f-o1': null, 'f-o2': null,
-    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-m1': null, 'r-m2': null, 'r-o1': null, 'r-o2': null
+    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-o1': null, 'r-o2': null
 };
 
 let activeTargetId = null;
@@ -167,7 +167,7 @@ function selectCard(rank, suit) {
     closeDeck();
     
     if (currentId.startsWith('f-')) tryEvaluateFlop();
-    if (currentId.startsWith('r-')) tryEvaluateRiver();
+    // We strictly removed the automatic tryEvaluateRiver() call here so the user has to press the Run button.
 }
 
 function resetStage(prefix) {
@@ -187,9 +187,9 @@ function resetStage(prefix) {
         document.getElementById('flop-action').className = 'action-result';
         document.getElementById('flop-reason').textContent = 'Awaiting inputs...';
     } else {
-        document.getElementById('river-action').textContent = '--';
-        document.getElementById('river-action').className = 'action-result';
-        document.getElementById('river-reason').textContent = 'Awaiting inputs...';
+        document.getElementById('river-matrix').style.display = 'none';
+        document.getElementById('river-legend').style.display = 'none';
+        if (riverWorker) { riverWorker.terminate(); riverWorker = null; }
     }
 }
 
@@ -238,38 +238,170 @@ function tryEvaluateFlop() {
     resReason.innerText = finalReason;
 }
 
-function tryEvaluateRiver() {
-    const keys = ['r-b1', 'r-b2', 'r-b3', 'r-b4', 'r-b5', 'r-m1', 'r-m2', 'r-o1', 'r-o2'];
-    if (keys.some(k => !gameState[k])) return; 
+function getHoleCards(cat, deadCards, boardCards) {
+    let r1 = cat[0], r2 = cat[1];
+    let isSuited = cat.endsWith('s'), isOffsuit = cat.endsWith('o'), isPair = (r1 === r2);
     
-    let board = [gameState['r-b1'], gameState['r-b2'], gameState['r-b3'], gameState['r-b4'], gameState['r-b5']];
-    let myHand = [gameState['r-m1'], gameState['r-m2']];
-    let buddyHand = [gameState['r-o1'], gameState['r-o2']];
+    let suitCounts = {'♠':0, '♥':0, '♦':0, '♣':0};
+    if (boardCards) {
+        boardCards.forEach(c => {
+            let s = c.slice(-1);
+            if (suitCounts[s] !== undefined) suitCounts[s]++;
+        });
+    }
+
+    let bestPair = null;
+    let bestScore = 999;
     
-    let resAction = document.getElementById('river-action');
-    let resReason = document.getElementById('river-reason');
-    
-    let baseAnalysis = engine.evaluateRiverBasic(board, myHand);
-    let finalAction = baseAnalysis.action;
-    let finalReason = `[BASE STRATEGY]: ${baseAnalysis.reason}`;
-    
-    if (baseAnalysis.needsPromotion) {
-        let overs = buddyHand.filter(c => c.val > Math.max(...board.map(bc => bc.val))).length;
-        if (overs >= 2) {
-            finalAction = "Call";
-            finalReason += `\n\n[COLLUSION OVERRIDE]: Kicker limits mechanically promoted! Buddy physically holds ${overs} overcards neutralizing dealer qualifiers. Fold shifted to Call 1x!`;
-        } else {
-            finalAction = "Fold";
-            finalReason += `\n\n[COLLUSION NOTICE]: Kicker threshold missed by 1 rank. Buddy only holds ${overs} key cards, insufficient to promote kicker. Formally Fold.`;
+    for (let i = 0; i < SUITS.length; i++) {
+        for (let j = 0; j < SUITS.length; j++) {
+            if (isSuited && i !== j) continue;
+            if ((!isSuited) && i === j) continue;
+            if (isPair && i === j) continue;
+            let c1 = r1 + SUITS[i];
+            let c2 = r2 + SUITS[j];
+            if (c1 === c2) continue;
+            if (!deadCards.includes(c1) && !deadCards.includes(c2)) {
+                let score = 0;
+                if (boardCards) {
+                    score += suitCounts[SUITS[i]] + suitCounts[SUITS[j]];
+                }
+                if (score < bestScore) {
+                    bestScore = score;
+                    bestPair = [c1, c2];
+                }
+            }
         }
-    } else if (baseAnalysis.action === 'Fold') {
-        finalReason += `\n\n[COLLUSION NOTICE]: Kicker falls too far below mathematical thresholds to be eligible for overcard promotion. Standard Fold.`;
     }
+    return bestPair;
+}
+
+function toAsciiSuit(s) {
+    if (s === '♠') return 's'; if (s === '♥') return 'h'; if (s === '♦') return 'd'; if (s === '♣') return 'c'; return s;
+}
+
+const FULL_DECK_ASCII = [];
+RANKS.forEach(r => ['s','h','d','c'].forEach(s => FULL_DECK_ASCII.push(r+s)));
+
+function tryEvaluateRiver() {
+    const boardKeys = ['r-b1', 'r-b2', 'r-b3', 'r-b4', 'r-b5'];
+    if (boardKeys.some(k => !gameState[k])) return; 
     
-    if (finalAction === 'Call') {
-        resAction.textContent = "1x CALL"; resAction.className = "action-result action-jam";
-    } else {
-        resAction.textContent = "FOLD"; resAction.className = "action-result action-check";
-    }
-    resReason.innerText = finalReason;
+    let board = boardKeys.map(k => gameState[k]);
+    let buddy = [];
+    if (gameState['r-o1']) buddy.push(gameState['r-o1']);
+    if (gameState['r-o2']) buddy.push(gameState['r-o2']);
+    
+    document.getElementById('river-calculating').style.display = 'block';
+    document.getElementById('river-matrix').style.display = 'none';
+    document.getElementById('river-legend').style.display = 'none';
+    
+    setTimeout(() => {
+        try {
+            let boardAscii = board.map(c => c.rank + toAsciiSuit(c.suit));
+            let buddyAscii = buddy.map(c => c.rank + toAsciiSuit(c.suit));
+            
+            let deadCardsAscii = [...boardAscii, ...buddyAscii];
+            let deck = FULL_DECK_ASCII.filter(c => !deadCardsAscii.includes(c));
+            
+            let dealerCombos = [];
+            for (let i = 0; i < deck.length; i++) {
+                for (let j = i+1; j < deck.length; j++) {
+                    dealerCombos.push([deck[i], deck[j]]);
+                }
+            }
+            
+            if (!window.Hand) throw new Error("PokerSolver failed to load. Check internet connection.");
+            let HandObj = window.Hand;
+            
+            let dealerCache = [];
+            for (let d of dealerCombos) {
+                let dHandStr = [...boardAscii, d[0], d[1]];
+                let solved = HandObj.solve(dHandStr);
+                let isQual = solved.name !== "High Card";
+                dealerCache.push({ hand: solved, isQual: isQual, c1: d[0], c2: d[1] });
+            }
+            
+            const results = {}; 
+            const blindWins = ["Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"];
+            
+            // Map dead cards internally for hole card assignment
+            let deadCardsVisual = [];
+            let boardVisual = [];
+            board.forEach(c => { 
+                let str = c.rank + c.suit;
+                deadCardsVisual.push(str); 
+                boardVisual.push(str);
+            });
+            buddy.forEach(c => deadCardsVisual.push(c.rank + c.suit));
+            
+            for (let cat of hands) {
+                let holeCards = getHoleCards(cat, deadCardsVisual, boardVisual);
+                if (!holeCards) { results[cat] = -2.0; continue; }
+                
+                let h1Ascii = holeCards[0][0] + toAsciiSuit(holeCards[0][1]);
+                let h2Ascii = holeCards[1][0] + toAsciiSuit(holeCards[1][1]);
+                
+                let pHandStr = [...boardAscii, h1Ascii, h2Ascii];
+                let pSolved = HandObj.solve(pHandStr);
+                let isBlindWin = blindWins.includes(pSolved.name) ? 1 : 0;
+                
+                let totalEV = 0;
+                let validCombos = 0;
+                for (let i = 0; i < dealerCache.length; i++) {
+                    let d = dealerCache[i];
+                    
+                    // Crucial Card Collision Math: Skip if Dealer holds the exact cards we just assigned to Player!
+                    if (d.c1 === h1Ascii || d.c1 === h2Ascii || d.c2 === h1Ascii || d.c2 === h2Ascii) {
+                        continue;
+                    }
+                    
+                    validCombos++;
+                    
+                    let winners = HandObj.winners([pSolved, d.hand]);
+                    let p_wins = winners.length === 1 && winners[0] === pSolved;
+                    let d_wins = winners.length === 1 && winners[0] === d.hand;
+                    
+                    if (d.isQual) {
+                        if (p_wins) totalEV += (1 + 1 + isBlindWin);
+                        else if (d_wins) totalEV += -3;
+                    } else {
+                        if (p_wins) totalEV += (1 + 0 + isBlindWin);
+                        else if (d_wins) totalEV += -2;
+                    }
+                }
+                results[cat] = totalEV / validCombos;
+            }
+            
+            let matrix = document.getElementById('river-matrix');
+            matrix.innerHTML = '';
+            
+            hands.forEach(cat => {
+                let cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                let ev = results[cat];
+                
+                if (ev > -2.0) {
+                    cell.classList.add('cell-jam-always'); 
+                    cell.textContent = cat;
+                } else {
+                    cell.classList.add('cell-check-always'); 
+                    cell.textContent = cat;
+                }
+                
+                let validDraws = buddy.length === 2 ? 903 : (buddy.length === 1 ? 946 : 990);
+                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across ${validDraws} valid combinations)`;
+                matrix.appendChild(cell);
+            });
+            
+            document.getElementById('river-calculating').style.display = 'none';
+            matrix.style.display = 'grid';
+            document.getElementById('river-legend').style.display = 'flex';
+            document.getElementById('river-legend').style.justifyContent = 'center';
+            
+        } catch(err) {
+            document.getElementById('river-calculating').style.display = 'none';
+            alert("Engine Error: " + err.message);
+        }
+    }, 50);
 }

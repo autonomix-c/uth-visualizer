@@ -7,6 +7,7 @@
     <!-- Google Fonts for Modern Typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/pokersolver@2.1.4/pokersolver.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -108,14 +109,8 @@
             <div class="stage-header">
                 <h3>River Engine</h3>
                 <div class="rules-panel">
-                    <h4>Basic Strategy Baseline</h4>
-                    <p>The system mathematically classifies the 5-card board (Scare, Quads, Trips, 2-pair, 1-pair, Gutshot, No Pair) and strictly requires the designated Kicker threshold to Call.</p>
-                    <hr style="border-color: rgba(255,255,255,0.1); margin: 10px 0;">
-                    <h4>Autonomix Analysis Overrides</h4>
-                    <ul>
-                        <li><span class="highlight">Paired Qualifying Boards:</span> If the 5-card board inherently qualifies the Dealer (Paired / 2-Pair / Trips), checking Buddy overcards becomes relevant.</li>
-                        <li><span class="highlight">The +1 Promotion:</span> If Buddy physically holds exactly 2 Nut Overcards or 2 absolute Dealer Match Outs, your required kicker threshold mechanically shrinks by 1 rank (promoting a `Fold` into a `Call`).</li>
-                    </ul>
+                    <h4>Exact Combinatorial DFS Engine</h4>
+                    <p>The system evaluates all 169 hands across all 990 mathematically possible end-game states against the Dealer's Random Range, mapping absolute true GTO Call/Fold deviations.</p>
                 </div>
             </div>
 
@@ -133,22 +128,23 @@
                 </div>
                 
                 <div class="hands-column">
-                    <h4>Your Hand</h4>
-                    <div class="card-row">
-                        <div class="card-slot empty" id="r-m1" onclick="openDeck('r-m1')">Select</div>
-                        <div class="card-slot empty" id="r-m2" onclick="openDeck('r-m2')">Select</div>
-                    </div>
-                    <h4>Buddy's Hand</h4>
+                    <h4>Buddy's Hand (Optional)</h4>
                     <div class="card-row">
                         <div class="card-slot empty" id="r-o1" onclick="openDeck('r-o1')">Select</div>
                         <div class="card-slot empty" id="r-o2" onclick="openDeck('r-o2')">Select</div>
                     </div>
                 </div>
 
-                <div class="result-board" id="river-result-board">
-                    <h4>Engine Output</h4>
-                    <div class="action-result" id="river-action">--</div>
-                    <p class="logic-reasoning" id="river-reason">Awaiting inputs...</p>
+
+                <div class="result-board" id="river-result-board" style="display: flex; flex-direction: column; align-items: center;">
+                    <button class="reset-btn" id="run-river-btn" style="background: var(--color-green-always); color: #000; font-weight: bold; margin-bottom: 20px; padding: 12px 24px; font-size: 16px;" onclick="tryEvaluateRiver()">Solve 169-Hand Matrix</button>
+                    <h4>River Matrix Output</h4>
+                    <div id="river-calculating" style="display: none; color: #ffeb3b; font-weight: bold; margin: 10px 0;">Calculating Exact Math Engine...</div>
+                    <div id="river-matrix" class="poker-grid" style="display: none; margin-top: 15px;"></div>
+                    <div id="river-legend" class="legend" style="display: none; margin-top: 15px;">
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-green-always);"></span> Call (EV > -2.0)</span>
+                        <span class="legend-item"><span class="box" style="background-color: var(--color-red-always);"></span> Fold (EV ≤ -2.0)</span>
+                    </div>
                 </div>
             </div>
         </section>
