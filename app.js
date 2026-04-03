@@ -107,7 +107,7 @@ if (table1 && table2) renderGrids();
  * ========================================== */
 const gameState = {
     'f-b1': null, 'f-b2': null, 'f-b3': null, 'f-m1': null, 'f-m2': null, 'f-o1': null, 'f-o2': null,
-    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-m1': null, 'r-m2': null, 'r-o1': null, 'r-o2': null, 'r-o3': null, 'r-o4': null, 'r-o5': null, 'r-o6': null
+    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-m1': null, 'r-m2': null, 'r-o1': null, 'r-o2': null, 'r-o3': null, 'r-o4': null
 };
 
 let activeTargetId = null;
@@ -315,7 +315,7 @@ function tryEvaluateRiver() {
     
     let board = boardKeys.map(k => gameState[k]);
     let buddy = [];
-    ['r-o1', 'r-o2', 'r-o3', 'r-o4', 'r-o5', 'r-o6'].forEach(k => {
+    ['r-o1', 'r-o2', 'r-o3', 'r-o4'].forEach(k => {
         if (gameState[k]) buddy.push(gameState[k]);
     });
     
