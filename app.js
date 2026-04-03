@@ -378,11 +378,18 @@ function tryEvaluateRiver() {
             const results = {}; 
             const blindWins = ["Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"];
             
-            // Core Bayesian Scale Factors
-            let wA = Math.pow(0.50, agroCount);
-            let wK = Math.pow(0.654, agroCount);
-            let wQ = Math.pow(0.847, agroCount);
             let hasAgro = agroCount > 0;
+            // 13-Rank Full Range Bayesian Modifiers for UTH 4X Protocol
+            const BASE_AGRO = {
+                'A': 0.910, 'K': 0.972, 'Q': 0.999, 'J': 1.015, 'T': 1.015, 
+                '9': 1.027, '8': 1.027, '7': 1.039, '6': 1.039, '5': 1.039, 
+                '4': 1.042, '3': 1.042, '2': 1.047 
+            };
+            
+            let AW = {};
+            if (hasAgro) {
+                for (let r in BASE_AGRO) AW[r] = Math.pow(BASE_AGRO[r], agroCount);
+            }
             
             // Map dead cards internally
             let deadCardsVisual = [];
@@ -415,11 +422,7 @@ function tryEvaluateRiver() {
                     if (d.c1 === c1Ascii || d.c1 === c2Ascii || d.c2 === c1Ascii || d.c2 === c2Ascii) continue;
                     
                     let w = 1.0;
-                    if (hasAgro) {
-                        let r1 = d.c1[0]; let r2 = d.c2[0];
-                        if (r1 === 'A') w *= wA; else if (r1 === 'K') w *= wK; else if (r1 === 'Q') w *= wQ;
-                        if (r2 === 'A') w *= wA; else if (r2 === 'K') w *= wK; else if (r2 === 'Q') w *= wQ;
-                    }
+                    if (hasAgro) w *= AW[d.c1[0]] * AW[d.c2[0]];
                     
                     vCombos += w;
                     let winnersH = HandObj.winners([pSolvedH, d.hand]);
@@ -464,11 +467,7 @@ function tryEvaluateRiver() {
                     if (d.c1 === h1Ascii || d.c1 === h2Ascii || d.c2 === h1Ascii || d.c2 === h2Ascii) continue;
                     
                     let w = 1.0;
-                    if (hasAgro) {
-                        let r1 = d.c1[0]; let r2 = d.c2[0];
-                        if (r1 === 'A') w *= wA; else if (r1 === 'K') w *= wK; else if (r1 === 'Q') w *= wQ;
-                        if (r2 === 'A') w *= wA; else if (r2 === 'K') w *= wK; else if (r2 === 'Q') w *= wQ;
-                    }
+                    if (hasAgro) w *= AW[d.c1[0]] * AW[d.c2[0]];
                     
                     vCombos += w;
                     let winners = HandObj.winners([pSolved, d.hand]);
