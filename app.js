@@ -416,17 +416,12 @@ function tryEvaluateRiver() {
                 let isBlindWin = blindWins.includes(pSolved.name) ? 1 : 0;
                 
                 let totalEV = 0;
-                let validCombos = 0;
+                let vCombos = 0;
                 for (let i = 0; i < dealerCache.length; i++) {
                     let d = dealerCache[i];
+                    if (d.c1 === h1Ascii || d.c1 === h2Ascii || d.c2 === h1Ascii || d.c2 === h2Ascii) continue;
                     
-                    // Crucial Card Collision Math: Skip if Dealer holds the exact cards we just assigned to Player!
-                    if (d.c1 === h1Ascii || d.c1 === h2Ascii || d.c2 === h1Ascii || d.c2 === h2Ascii) {
-                        continue;
-                    }
-                    
-                    validCombos++;
-                    
+                    vCombos++;
                     let winners = HandObj.winners([pSolved, d.hand]);
                     let p_wins = winners.length === 1 && winners[0] === pSolved;
                     let d_wins = winners.length === 1 && winners[0] === d.hand;
@@ -439,7 +434,7 @@ function tryEvaluateRiver() {
                         else if (d_wins) totalEV += -2;
                     }
                 }
-                results[cat] = totalEV / validCombos;
+                results[cat] = { ev: totalEV / vCombos, combos: vCombos };
             }
             
             let matrix = document.getElementById('river-matrix');
@@ -448,7 +443,8 @@ function tryEvaluateRiver() {
             hands.forEach(cat => {
                 let cell = document.createElement('div');
                 cell.className = 'grid-cell';
-                let ev = results[cat];
+                let val = results[cat];
+                let ev = val.ev;
                 
                 if (ev > -2.0) {
                     cell.classList.add('cell-jam-always'); 
@@ -458,9 +454,7 @@ function tryEvaluateRiver() {
                     cell.textContent = cat;
                 }
                 
-                // Estimate valid combos based on average removal
-                let validDraws = dealerCache.length - 88; // Default estimation for tooltips
-                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across exact dynamic blocker cache)`;
+                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across exactly ${val.combos} valid combinations)`;
                 matrix.appendChild(cell);
             });
             
