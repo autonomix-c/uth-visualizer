@@ -451,7 +451,7 @@ function tryEvaluateRiver() {
             
             for (let cat of hands) {
                 let holeCards = getHoleCards(cat, deadCardsVisual, boardVisual);
-                if (!holeCards) { results[cat] = -2.0; continue; }
+                if (!holeCards) { results[cat] = { ev: -2.0, combos: 0 }; continue; }
                 
                 let h1Ascii = holeCards[0][0] + toAsciiSuit(holeCards[0][1]);
                 let h2Ascii = holeCards[1][0] + toAsciiSuit(holeCards[1][1]);
