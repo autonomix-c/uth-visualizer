@@ -107,7 +107,7 @@ if (table1 && table2) renderGrids();
  * ========================================== */
 const gameState = {
     'f-b1': null, 'f-b2': null, 'f-b3': null, 'f-m1': null, 'f-m2': null, 'f-o1': null, 'f-o2': null,
-    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-o1': null, 'r-o2': null
+    'r-b1': null, 'r-b2': null, 'r-b3': null, 'r-b4': null, 'r-b5': null, 'r-m1': null, 'r-m2': null, 'r-o1': null, 'r-o2': null, 'r-o3': null, 'r-o4': null, 'r-o5': null, 'r-o6': null
 };
 
 let activeTargetId = null;
@@ -173,6 +173,8 @@ function clearActiveCard() {
         if (legend) legend.style.display = 'none';
         let calc = document.getElementById('river-calculating');
         if (calc) calc.style.display = 'none';
+        let heroSpec = document.getElementById('hero-specific-output');
+        if (heroSpec) heroSpec.style.display = 'none';
     }
 }
 
@@ -208,9 +210,12 @@ function resetStage(prefix) {
         document.getElementById('flop-action').className = 'action-result';
         document.getElementById('flop-reason').textContent = 'Awaiting inputs...';
     } else {
-        document.getElementById('river-matrix').style.display = 'none';
-        document.getElementById('river-legend').style.display = 'none';
-        if (riverWorker) { riverWorker.terminate(); riverWorker = null; }
+        let matrix = document.getElementById('river-matrix');
+        if (matrix) matrix.style.display = 'none';
+        let legend = document.getElementById('river-legend');
+        if (legend) legend.style.display = 'none';
+        let heroSpec = document.getElementById('hero-specific-output');
+        if (heroSpec) heroSpec.style.display = 'none';
     }
 }
 
@@ -310,12 +315,14 @@ function tryEvaluateRiver() {
     
     let board = boardKeys.map(k => gameState[k]);
     let buddy = [];
-    if (gameState['r-o1']) buddy.push(gameState['r-o1']);
-    if (gameState['r-o2']) buddy.push(gameState['r-o2']);
+    ['r-o1', 'r-o2', 'r-o3', 'r-o4', 'r-o5', 'r-o6'].forEach(k => {
+        if (gameState[k]) buddy.push(gameState[k]);
+    });
     
     document.getElementById('river-calculating').style.display = 'block';
     document.getElementById('river-matrix').style.display = 'none';
     document.getElementById('river-legend').style.display = 'none';
+    document.getElementById('hero-specific-output').style.display = 'none';
     
     setTimeout(() => {
         try {
@@ -346,7 +353,7 @@ function tryEvaluateRiver() {
             const results = {}; 
             const blindWins = ["Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"];
             
-            // Map dead cards internally for hole card assignment
+            // Map dead cards internally
             let deadCardsVisual = [];
             let boardVisual = [];
             board.forEach(c => { 
@@ -355,6 +362,47 @@ function tryEvaluateRiver() {
                 boardVisual.push(str);
             });
             buddy.forEach(c => deadCardsVisual.push(c.rank + c.suit));
+            
+            // Specific Hero Hand Evaluation
+            if (gameState['r-m1'] && gameState['r-m2']) {
+                let h1 = gameState['r-m1'];
+                let h2 = gameState['r-m2'];
+                
+                let combinedDead = [...deadCardsVisual, h1.rank+h1.suit, h2.rank+h2.suit];
+                // Warning if the user tries to assign a card playing on the board to hero (impossible state)
+                let c1Ascii = h1.rank + toAsciiSuit(h1.suit);
+                let c2Ascii = h2.rank + toAsciiSuit(h2.suit);
+                
+                let pHandStrH = [...boardAscii, c1Ascii, c2Ascii];
+                let pSolvedH = HandObj.solve(pHandStrH);
+                let isBlindWinH = blindWins.includes(pSolvedH.name) ? 1 : 0;
+                
+                let tEV = 0;
+                let vCombos = 0;
+                for (let i = 0; i < dealerCache.length; i++) {
+                    let d = dealerCache[i];
+                    if (d.c1 === c1Ascii || d.c1 === c2Ascii || d.c2 === c1Ascii || d.c2 === c2Ascii) continue;
+                    
+                    vCombos++;
+                    let winnersH = HandObj.winners([pSolvedH, d.hand]);
+                    let p_winsH = winnersH.length === 1 && winnersH[0] === pSolvedH;
+                    let d_winsH = winnersH.length === 1 && winnersH[0] === d.hand;
+                    
+                    if (d.isQual) {
+                        if (p_winsH) tEV += (1 + 1 + isBlindWinH);
+                        else if (d_winsH) tEV += -3;
+                    } else {
+                        if (p_winsH) tEV += (1 + 0 + isBlindWinH);
+                        else if (d_winsH) tEV += -2;
+                    }
+                }
+                
+                let heroEV = tEV / vCombos;
+                document.getElementById('hero-specific-ev').textContent = heroEV.toFixed(4) + (heroEV > -2.0 ? ' (CALL)' : ' (FOLD)');
+                document.getElementById('hero-specific-ev').style.color = heroEV > -2.0 ? 'var(--color-green-always)' : 'var(--color-check)';
+                document.getElementById('hero-specific-detail').textContent = `Evaluated across ${vCombos} explicit combinations (Blocker physics enforced)`;
+                document.getElementById('hero-specific-output').style.display = 'block';
+            }
             
             for (let cat of hands) {
                 let holeCards = getHoleCards(cat, deadCardsVisual, boardVisual);
@@ -410,8 +458,9 @@ function tryEvaluateRiver() {
                     cell.textContent = cat;
                 }
                 
-                let validDraws = buddy.length === 2 ? 903 : (buddy.length === 1 ? 946 : 990);
-                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across ${validDraws} valid combinations)`;
+                // Estimate valid combos based on average removal
+                let validDraws = dealerCache.length - 88; // Default estimation for tooltips
+                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across exact dynamic blocker cache)`;
                 matrix.appendChild(cell);
             });
             

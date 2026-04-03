@@ -128,16 +128,35 @@
                 </div>
                 
                 <div class="hands-column">
-                    <h4>Buddy's Hand (Optional)</h4>
+                    <h4>Your Hand</h4>
                     <div class="card-row">
+                        <div class="card-slot empty" id="r-m1" onclick="openDeck('r-m1')">Select</div>
+                        <div class="card-slot empty" id="r-m2" onclick="openDeck('r-m2')">Select</div>
+                    </div>
+                </div>
+                
+                <div class="hands-column" style="margin-top: 20px;">
+                    <h4>Dead Blockers (Optional)</h4>
+                    <div class="card-row" style="flex-wrap: wrap; justify-content: center; max-width: 300px; gap: 5px;">
                         <div class="card-slot empty" id="r-o1" onclick="openDeck('r-o1')">Select</div>
                         <div class="card-slot empty" id="r-o2" onclick="openDeck('r-o2')">Select</div>
+                        <div class="card-slot empty" id="r-o3" onclick="openDeck('r-o3')">Select</div>
+                        <div class="card-slot empty" id="r-o4" onclick="openDeck('r-o4')">Select</div>
+                        <div class="card-slot empty" id="r-o5" onclick="openDeck('r-o5')">Select</div>
+                        <div class="card-slot empty" id="r-o6" onclick="openDeck('r-o6')">Select</div>
                     </div>
                 </div>
 
 
                 <div class="result-board" id="river-result-board" style="display: flex; flex-direction: column; align-items: center;">
-                    <button class="reset-btn" id="run-river-btn" style="background: var(--color-green-always); color: #000; font-weight: bold; margin-bottom: 20px; padding: 12px 24px; font-size: 16px;" onclick="tryEvaluateRiver()">Solve 169-Hand Matrix</button>
+                    <button class="reset-btn" id="run-river-btn" style="background: var(--color-green-always); color: #000; font-weight: bold; margin-bottom: 20px; padding: 12px 24px; font-size: 16px;" onclick="tryEvaluateRiver()">Solve River Engine</button>
+                    
+                    <div id="hero-specific-output" style="display:none; text-align:center; padding: 10px 20px; background: rgba(0,0,0,0.5); border: 2px solid var(--color-check); border-radius: 8px; margin-bottom: 20px; min-width: 250px;">
+                        <h4 style="margin: 0 0 5px 0; color: #aaa;">Specific Hand EV</h4>
+                        <div id="hero-specific-ev" style="font-size: 26px; font-weight: 900; letter-spacing: 1px;">--</div>
+                        <div id="hero-specific-detail" style="font-size: 13px; color: #888; margin-top: 5px;"></div>
+                    </div>
+
                     <h4>River Matrix Output</h4>
                     <div id="river-calculating" style="display: none; color: #ffeb3b; font-weight: bold; margin: 10px 0;">Calculating Exact Math Engine...</div>
                     <div id="river-matrix" class="poker-grid" style="display: none; margin-top: 15px;"></div>
