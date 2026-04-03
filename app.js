@@ -147,6 +147,11 @@ function renderDeck() {
 function openDeck(targetId) {
     activeTargetId = targetId;
     renderDeck();
+    let agroBtn = document.getElementById('deck-agro-container');
+    if (agroBtn) {
+        if (targetId.startsWith('r-o')) agroBtn.style.display = 'block';
+        else agroBtn.style.display = 'none';
+    }
     document.getElementById('deck-modal').style.display = 'flex';
 }
 
@@ -162,6 +167,8 @@ function clearActiveCard() {
     if (slot) {
         slot.innerHTML = 'Select';
         slot.className = 'card-slot empty';
+        slot.style.background = '';
+        slot.style.border = '';
     }
     closeDeck();
     
@@ -180,6 +187,18 @@ function clearActiveCard() {
 
 function selectCard(rank, suit) {
     if (!activeTargetId) return;
+    
+    if (rank === 'AGRO') {
+        gameState[activeTargetId] = { isAgro: true };
+        let slot = document.getElementById(activeTargetId);
+        slot.innerHTML = `<span style="color:white; font-size:12px; font-weight:bold;">AGRO<br>4X</span>`;
+        slot.classList.add('filled');
+        slot.style.background = '#e74c3c';
+        slot.style.border = '2px solid #c0392b';
+        closeDeck();
+        return;
+    }
+    
     gameState[activeTargetId] = { rank, suit, val: RANK_VALS[rank] };
     let slot = document.getElementById(activeTargetId);
     let colorClass = (suit === '♥' || suit === '♦') ? 'suit-red' : 'suit-black';
@@ -201,6 +220,8 @@ function resetStage(prefix) {
             if (slot) {
                 slot.innerHTML = 'Select';
                 slot.className = 'card-slot empty';
+                slot.style.background = '';
+                slot.style.border = '';
             }
         }
     });
@@ -315,8 +336,12 @@ function tryEvaluateRiver() {
     
     let board = boardKeys.map(k => gameState[k]);
     let buddy = [];
+    let agroCount = 0;
     ['r-o1', 'r-o2', 'r-o3', 'r-o4'].forEach(k => {
-        if (gameState[k]) buddy.push(gameState[k]);
+        if (gameState[k]) {
+            if (gameState[k].isAgro) agroCount++;
+            else buddy.push(gameState[k]);
+        }
     });
     
     document.getElementById('river-calculating').style.display = 'block';
@@ -353,6 +378,12 @@ function tryEvaluateRiver() {
             const results = {}; 
             const blindWins = ["Straight", "Flush", "Full House", "Four of a Kind", "Straight Flush", "Royal Flush"];
             
+            // Core Bayesian Scale Factors
+            let wA = Math.pow(0.50, agroCount);
+            let wK = Math.pow(0.654, agroCount);
+            let wQ = Math.pow(0.847, agroCount);
+            let hasAgro = agroCount > 0;
+            
             // Map dead cards internally
             let deadCardsVisual = [];
             let boardVisual = [];
@@ -383,24 +414,35 @@ function tryEvaluateRiver() {
                     let d = dealerCache[i];
                     if (d.c1 === c1Ascii || d.c1 === c2Ascii || d.c2 === c1Ascii || d.c2 === c2Ascii) continue;
                     
-                    vCombos++;
+                    let w = 1.0;
+                    if (hasAgro) {
+                        let r1 = d.c1[0]; let r2 = d.c2[0];
+                        if (r1 === 'A') w *= wA; else if (r1 === 'K') w *= wK; else if (r1 === 'Q') w *= wQ;
+                        if (r2 === 'A') w *= wA; else if (r2 === 'K') w *= wK; else if (r2 === 'Q') w *= wQ;
+                    }
+                    
+                    vCombos += w;
                     let winnersH = HandObj.winners([pSolvedH, d.hand]);
                     let p_winsH = winnersH.length === 1 && winnersH[0] === pSolvedH;
                     let d_winsH = winnersH.length === 1 && winnersH[0] === d.hand;
                     
                     if (d.isQual) {
-                        if (p_winsH) tEV += (1 + 1 + isBlindWinH);
-                        else if (d_winsH) tEV += -3;
+                        if (p_winsH) tEV += w * (1 + 1 + isBlindWinH);
+                        else if (d_winsH) tEV += w * -3;
                     } else {
-                        if (p_winsH) tEV += (1 + 0 + isBlindWinH);
-                        else if (d_winsH) tEV += -2;
+                        if (p_winsH) tEV += w * (1 + 0 + isBlindWinH);
+                        else if (d_winsH) tEV += w * -2;
                     }
                 }
                 
                 let heroEV = tEV / vCombos;
                 document.getElementById('hero-specific-ev').textContent = heroEV.toFixed(4) + (heroEV > -2.0 ? ' (CALL)' : ' (FOLD)');
                 document.getElementById('hero-specific-ev').style.color = heroEV > -2.0 ? 'var(--color-green-always)' : 'var(--color-check)';
-                document.getElementById('hero-specific-detail').textContent = `Evaluated across ${vCombos} explicit combinations (Blocker physics enforced)`;
+                
+                let detailStr = `Evaluated across ${Number.isInteger(vCombos) ? vCombos : vCombos.toFixed(1)} valid combinations`;
+                if (hasAgro) detailStr += `\n(+ ${agroCount}x Virtual Agro Penalty)`;
+                document.getElementById('hero-specific-detail').textContent = detailStr;
+                
                 document.getElementById('hero-specific-output').style.display = 'block';
             }
             
@@ -421,17 +463,24 @@ function tryEvaluateRiver() {
                     let d = dealerCache[i];
                     if (d.c1 === h1Ascii || d.c1 === h2Ascii || d.c2 === h1Ascii || d.c2 === h2Ascii) continue;
                     
-                    vCombos++;
+                    let w = 1.0;
+                    if (hasAgro) {
+                        let r1 = d.c1[0]; let r2 = d.c2[0];
+                        if (r1 === 'A') w *= wA; else if (r1 === 'K') w *= wK; else if (r1 === 'Q') w *= wQ;
+                        if (r2 === 'A') w *= wA; else if (r2 === 'K') w *= wK; else if (r2 === 'Q') w *= wQ;
+                    }
+                    
+                    vCombos += w;
                     let winners = HandObj.winners([pSolved, d.hand]);
                     let p_wins = winners.length === 1 && winners[0] === pSolved;
                     let d_wins = winners.length === 1 && winners[0] === d.hand;
                     
                     if (d.isQual) {
-                        if (p_wins) totalEV += (1 + 1 + isBlindWin);
-                        else if (d_wins) totalEV += -3;
+                        if (p_wins) totalEV += w * (1 + 1 + isBlindWin);
+                        else if (d_wins) totalEV += w * -3;
                     } else {
-                        if (p_wins) totalEV += (1 + 0 + isBlindWin);
-                        else if (d_wins) totalEV += -2;
+                        if (p_wins) totalEV += w * (1 + 0 + isBlindWin);
+                        else if (d_wins) totalEV += w * -2;
                     }
                 }
                 results[cat] = { ev: totalEV / vCombos, combos: vCombos };
@@ -454,7 +503,7 @@ function tryEvaluateRiver() {
                     cell.textContent = cat;
                 }
                 
-                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across exactly ${val.combos} valid combinations)`;
+                cell.title = `EV: ${ev.toFixed(4)} units\n(Evaluated across exactly ${Number.isInteger(val.combos) ? val.combos : val.combos.toFixed(2)} combos)` + (hasAgro ? `\n* includes ${agroCount}x Agro Penalty Weights` : ``);
                 matrix.appendChild(cell);
             });
             
