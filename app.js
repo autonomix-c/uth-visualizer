@@ -22,6 +22,18 @@ function getOOPAction(myHandCat, buddyHandCat) {
     let r1 = myHandCat[0], r2 = myHandCat[1], isSuited = myHandCat.endsWith('s'), isPair = (r1 === r2);
     let val1 = RANK_VALS[r1], val2 = RANK_VALS[r2];
     if (val1 < val2) { let t = val1; val1 = val2; val2 = t; }
+
+    // STRATEGY 6: UNCONDITIONAL 4X JAM OVERRIDES
+    if (val1 === 14) return 4; // All Aces
+    if (isPair && val1 >= 4) return 4; // 44+
+    if (isSuited) {
+        if (val1 === 13 && val2 >= 4) return 4; // K4s+
+        if (val1 === 12 && val2 >= 8) return 4; // Q8s+
+        if (val1 === 11 && val2 >= 10) return 4; // JTs
+    } else {
+        if (val1 === 13 && val2 >= 8) return 4; // K8o+
+        if (val1 === 12 && val2 >= 10) return 4; // QTo+
+    }
     
     let b_val1 = RANK_VALS[buddyHandCat[0]], b_val2 = RANK_VALS[buddyHandCat[1]];
     let b_vals = [b_val1, b_val2];
